@@ -1,7 +1,6 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import type { SeaTalkClient } from "./client.js";
+import { readLocalMedia } from "./media-local.js";
 import { getSeatalkRuntime } from "./runtime.js";
 import type { SeaTalkMediaInfo, SeaTalkMessage, SeaTalkOutboundMedia } from "./types.js";
 
@@ -94,36 +93,28 @@ export async function resolveInboundMedia(params: {
 	return null;
 }
 
-export async function prepareOutboundMedia(mediaUrl: string): Promise<SeaTalkOutboundMedia | null> {
-	let buffer: Buffer;
-	let detectedName: string;
-
-	if (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://")) {
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 30_000);
-		try {
-			const res = await fetch(mediaUrl, { signal: controller.signal });
-			if (!res.ok) {
-				throw new Error(`Failed to fetch media from ${mediaUrl}: HTTP ${res.status}`);
-			}
-			const arrayBuffer = await res.arrayBuffer();
-			buffer = Buffer.from(arrayBuffer);
-		} finally {
-			clearTimeout(timeout);
+async function fetchRemoteMedia(url: string): Promise<{ buffer: Buffer; name: string }> {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 30_000);
+	try {
+		const res = await fetch(url, { signal: controller.signal });
+		if (!res.ok) {
+			throw new Error(`Failed to fetch media from ${url}: HTTP ${res.status}`);
 		}
-		const urlPath = new URL(mediaUrl).pathname;
-		detectedName = path.basename(urlPath) || "file";
-	} else {
-		const resolved = mediaUrl.startsWith("~")
-			? path.join(os.homedir(), mediaUrl.slice(1))
-			: mediaUrl.replace(/^file:\/\//, "");
-
-		if (!fs.existsSync(resolved)) {
-			throw new Error(`Media file not found: ${resolved}`);
-		}
-		buffer = fs.readFileSync(resolved);
-		detectedName = path.basename(resolved);
+		const arrayBuffer = await res.arrayBuffer();
+		const buffer = Buffer.from(arrayBuffer);
+		const urlPath = new URL(url).pathname;
+		return { buffer, name: path.basename(urlPath) || "file" };
+	} finally {
+		clearTimeout(timeout);
 	}
+}
+
+export async function prepareOutboundMedia(mediaUrl: string): Promise<SeaTalkOutboundMedia | null> {
+	const isRemote = mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://");
+	const { buffer, name: detectedName } = isRemote
+		? await fetchRemoteMedia(mediaUrl)
+		: readLocalMedia(mediaUrl);
 
 	if (buffer.length > MAX_OUTBOUND_RAW_BYTES) {
 		throw new Error(
