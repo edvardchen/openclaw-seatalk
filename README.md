@@ -63,10 +63,16 @@ openclaw plugins install openclaw-seatalk
 
 OpenClaw downloads the package, installs dependencies, and registers the plugin automatically. The plugin will appear in the `openclaw onboard` channel selection.
 
-To pin a specific version:
+To install and pin a specific version:
 
 ```bash
 openclaw plugins install openclaw-seatalk --pin
+```
+
+To update to the latest version (restart the gateway afterwards to apply):
+
+```bash
+openclaw plugins update openclaw-seatalk
 ```
 
 ### From source (development)

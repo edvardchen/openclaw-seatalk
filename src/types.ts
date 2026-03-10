@@ -17,7 +17,6 @@ export type ResolvedSeaTalkAccount = {
 	configured: boolean;
 	appId?: string;
 	appSecret?: string;
-	signingSecret?: string;
 	mode: GatewayMode;
 	relayUrl?: string;
 	webhookPort: number;

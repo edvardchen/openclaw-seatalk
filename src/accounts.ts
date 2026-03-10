@@ -77,7 +77,6 @@ export function resolveSeaTalkAccount(params: {
 		configured: Boolean(creds),
 		appId: creds?.appId,
 		appSecret: creds?.appSecret,
-		signingSecret: creds?.signingSecret,
 		mode: merged.mode ?? "webhook",
 		relayUrl: merged.relayUrl,
 		webhookPort: merged.webhookPort ?? 8080,

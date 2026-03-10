@@ -1,7 +1,11 @@
 import * as crypto from "node:crypto";
 import * as http from "node:http";
 import type { ClawdbotConfig, RuntimeEnv } from "openclaw/plugin-sdk";
-import { listEnabledSeaTalkAccounts, resolveSeaTalkAccount } from "./accounts.js";
+import {
+	listEnabledSeaTalkAccounts,
+	resolveSeaTalkAccount,
+	resolveSeaTalkCredentials,
+} from "./accounts.js";
 import { dispatchSeaTalkEvent } from "./bot.js";
 import { resolveSeaTalkClient } from "./client.js";
 import type { ResolvedSeaTalkAccount, SeaTalkCallbackRequest } from "./types.js";
@@ -69,7 +73,7 @@ async function monitorSingleAccount(params: {
 
 	const port = account.webhookPort;
 	const callbackPath = account.webhookPath;
-	const signingSecret = account.signingSecret;
+	const signingSecret = resolveSeaTalkCredentials(account.config)?.signingSecret;
 
 	if (!signingSecret) {
 		throw new Error(`SeaTalk account "${accountId}" missing signingSecret`);

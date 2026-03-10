@@ -1,6 +1,10 @@
 import type { ClawdbotConfig, RuntimeEnv } from "openclaw/plugin-sdk";
 import WebSocket from "ws";
-import { listEnabledSeaTalkAccounts, resolveSeaTalkAccount } from "./accounts.js";
+import {
+	listEnabledSeaTalkAccounts,
+	resolveSeaTalkAccount,
+	resolveSeaTalkCredentials,
+} from "./accounts.js";
 import { dispatchSeaTalkEvent } from "./bot.js";
 import { resolveSeaTalkClient } from "./client.js";
 import type { MonitorSeaTalkOpts } from "./monitor.js";
@@ -36,7 +40,8 @@ async function connectSingleAccount(params: {
 	const log = runtime?.log ?? console.log;
 	const error = runtime?.error ?? console.error;
 
-	if (!account.appId || !account.appSecret || !account.signingSecret) {
+	const signingSecret = resolveSeaTalkCredentials(account.config)?.signingSecret;
+	if (!account.appId || !account.appSecret || !signingSecret) {
 		throw new Error(`SeaTalk account "${accountId}" missing credentials for relay mode`);
 	}
 
@@ -71,7 +76,7 @@ async function connectSingleAccount(params: {
 							type: "auth",
 							appId: account.appId,
 							appSecret: account.appSecret,
-							signingSecret: account.signingSecret,
+							signingSecret,
 						}),
 					);
 				});
