@@ -15,7 +15,7 @@ export { probeSeaTalk } from "./src/probe.js";
 export { seatalkPlugin } from "./src/channel.js";
 
 const plugin = {
-	id: "seatalk",
+	id: "openclaw-seatalk",
 	name: "SeaTalk",
 	description: "SeaTalk channel plugin",
 	configSchema: emptyPluginConfigSchema(),

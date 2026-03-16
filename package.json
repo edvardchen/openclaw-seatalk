@@ -1,6 +1,6 @@
 {
 	"name": "openclaw-seatalk",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "OpenClaw SeaTalk channel plugin",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -12,7 +12,7 @@
 	"bugs": "https://github.com/lf4096/openclaw-seatalk/issues",
 	"keywords": ["openclaw", "seatalk", "chatbot", "channel-plugin"],
 	"engines": {
-		"node": ">=18.0.0"
+		"node": ">=22.16.0"
 	},
 	"files": ["index.ts", "src/", "openclaw.plugin.json"],
 	"scripts": {
