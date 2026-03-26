@@ -27,7 +27,7 @@ OpenClaw channel plugin for [SeaTalk](https://seatalk.io/) messaging.
 - **Security** — SHA256 signature verification for all incoming events
 - **Token management** — automatic access token obtain, cache, and refresh
 - **Deduplication** — event ID dedup + per-sender debounce buffer (thread-aware)
-- **Access control** — DM policy (`open`/`allowlist`), group policy (`disabled`/`allowlist`/`open`), per-group and per-sender allow-lists
+- **Access control** — DM policy (`open`/`allowlist`/`pairing`), group policy (`disabled`/`allowlist`/`open`), per-group and per-sender allow-lists
 - **Email resolution** — email-to-employee_code lookup for outbound message targets
 - **Multi-account** — multiple SeaTalk bot apps in one OpenClaw instance
 - **Health probing** — connection health check on startup
@@ -64,9 +64,9 @@ openclaw plugins install openclaw-seatalk
 OpenClaw downloads the package, installs dependencies, and registers the plugin automatically. The plugin will appear in the `openclaw onboard` channel selection.
 
 | Plugin version | OpenClaw version |
-|---------------|-----------------|
-| 0.2.x | >= 2026.3.22 |
-| 0.1.x | < 2026.3.22 |
+| -------------- | ---------------- |
+| 0.2.x          | >= 2026.3.22     |
+| 0.1.x          | < 2026.3.22      |
 
 v0.2.0 migrated to the new plugin SDK (`openclaw/plugin-sdk/*`). If you are running OpenClaw < 2026.3.22, pin to 0.1.x:
 
@@ -143,14 +143,14 @@ Or edit the OpenClaw config file directly (`~/.openclaw/openclaw.json`).
   channels: {
     seatalk: {
       enabled: true,
-      mode: "webhook",  // default, can be omitted
+      mode: "webhook", // default, can be omitted
       appId: "your_app_id",
       appSecret: "your_app_secret",
       signingSecret: "your_signing_secret",
       webhookPort: 3210,
       webhookPath: "/callback",
-      dmPolicy: "open",  // or "allowlist"
-      // allowFrom: ["12345678", "alice@company.com"],
+      dmPolicy: "open", // or "allowlist" | "pairing"
+      // allowFrom: ["e_12345678", "alice@company.com"],
     },
   },
 }
@@ -170,9 +170,9 @@ Or edit the OpenClaw config file directly (`~/.openclaw/openclaw.json`).
       relayUrl: "ws://relay.example.com:8080/ws",
       dmPolicy: "allowlist",
       allowFrom: ["alice@company.com"],
-      groupPolicy: "allowlist",      // "disabled" | "allowlist" | "open"
+      groupPolicy: "allowlist", // "disabled" | "allowlist" | "open"
       groupAllowFrom: ["group_abc123"],
-      groupSenderAllowFrom: ["alice@company.com"],  // optional sender-level filter
+      groupSenderAllowFrom: ["alice@company.com"], // optional sender-level filter
       processingIndicator: "typing", // "typing" (default) | "off"
       tools: {
         groupInfo: true,
@@ -188,33 +188,35 @@ Or edit the OpenClaw config file directly (`~/.openclaw/openclaw.json`).
 
 ### Config fields
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `mode` | `"webhook"` \| `"relay"` | `"webhook"` | Gateway mode |
-| `appId` | string | — | SeaTalk App ID |
-| `appSecret` | string | — | SeaTalk App Secret |
-| `signingSecret` | string | — | SeaTalk Signing Secret |
-| `webhookPort` | number | `8080` | HTTP port (webhook mode only) |
-| `webhookPath` | string | `"/callback"` | HTTP path (webhook mode only) |
-| `relayUrl` | string | — | WebSocket URL (relay mode only) |
-| `dmPolicy` | `"open"` \| `"allowlist"` | `"allowlist"` | Who can DM the bot |
-| `allowFrom` | string[] | — | Allowed DM senders (employee codes or emails) |
-| `groupPolicy` | `"disabled"` \| `"allowlist"` \| `"open"` | `"disabled"` | Group chat policy |
-| `groupAllowFrom` | string[] | — | Allowed group IDs (when `groupPolicy: "allowlist"`) |
-| `groupSenderAllowFrom` | string[] | — | Allowed senders within groups (employee codes or emails) |
-| `processingIndicator` | `"typing"` \| `"off"` | `"typing"` | Show typing status while processing |
-| `tools.groupInfo` | boolean | `true` | Enable `seatalk` tool `group_info` action |
-| `tools.groupHistory` | boolean | `true` | Enable `seatalk` tool `group_history` action |
-| `tools.groupList` | boolean | `true` | Enable `seatalk` tool `group_list` action |
-| `tools.threadHistory` | boolean | `true` | Enable `seatalk` tool `thread_history` action |
-| `tools.getMessage` | boolean | `true` | Enable `seatalk` tool `get_message` action |
+| Field                  | Type                                      | Default       | Description                                                                                                                      |
+| ---------------------- | ----------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                 | `"webhook"` \| `"relay"`                  | `"webhook"`   | Gateway mode                                                                                                                     |
+| `appId`                | string                                    | —             | SeaTalk App ID                                                                                                                   |
+| `appSecret`            | string                                    | —             | SeaTalk App Secret                                                                                                               |
+| `signingSecret`        | string                                    | —             | SeaTalk Signing Secret                                                                                                           |
+| `webhookPort`          | number                                    | `8080`        | HTTP port (webhook mode only)                                                                                                    |
+| `webhookPath`          | string                                    | `"/callback"` | HTTP path (webhook mode only)                                                                                                    |
+| `relayUrl`             | string                                    | —             | WebSocket URL (relay mode only)                                                                                                  |
+| `dmPolicy`             | `"open"` \| `"allowlist"` \| `"pairing"`  | `"allowlist"` | Who can DM the bot (`pairing`: approve via `openclaw pairing approve seatalk <code>`; optional static `allowFrom` still applies) |
+| `allowFrom`            | string[]                                  | —             | Allowed DM senders (employee codes or emails)                                                                                    |
+| `groupPolicy`          | `"disabled"` \| `"allowlist"` \| `"open"` | `"disabled"`  | Group chat policy                                                                                                                |
+| `groupAllowFrom`       | string[]                                  | —             | Allowed group IDs (when `groupPolicy: "allowlist"`)                                                                              |
+| `groupSenderAllowFrom` | string[]                                  | —             | Allowed senders within groups (employee codes or emails)                                                                         |
+| `processingIndicator`  | `"typing"` \| `"off"`                     | `"typing"`    | Show typing status while processing                                                                                              |
+| `tools.groupInfo`      | boolean                                   | `true`        | Enable `seatalk` tool `group_info` action                                                                                        |
+| `tools.groupHistory`   | boolean                                   | `true`        | Enable `seatalk` tool `group_history` action                                                                                     |
+| `tools.groupList`      | boolean                                   | `true`        | Enable `seatalk` tool `group_list` action                                                                                        |
+| `tools.threadHistory`  | boolean                                   | `true`        | Enable `seatalk` tool `thread_history` action                                                                                    |
+| `tools.getMessage`     | boolean                                   | `true`        | Enable `seatalk` tool `get_message` action                                                                                       |
+
+**DM pairing (`dmPolicy: "pairing"`)** — Unknown senders get a one-time code in chat; run `openclaw pairing approve seatalk <code>` on the gateway host. Use `openclaw pairing list` / `pairing pending seatalk` to inspect requests. Multi-account: pass `--account <id>` on pairing commands. Optional `notifyApproval` uses the default SeaTalk account’s API client.
 
 Credentials can also be provided via environment variables:
 
-| Env Var | Config Field |
-|---------|-------------|
-| `SEATALK_APP_ID` | `appId` |
-| `SEATALK_APP_SECRET` | `appSecret` |
+| Env Var                  | Config Field    |
+| ------------------------ | --------------- |
+| `SEATALK_APP_ID`         | `appId`         |
+| `SEATALK_APP_SECRET`     | `appSecret`     |
 | `SEATALK_SIGNING_SECRET` | `signingSecret` |
 
 ### Multi-account
@@ -255,13 +257,13 @@ Each account has its own credentials and gateway mode. Top-level fields (e.g. `t
 
 The plugin registers a `seatalk` agent tool using a `Type.Union` schema (each action defines its own required/optional parameters):
 
-| Action | Description | Required params | Optional params |
-|--------|-------------|-----------------|-----------------|
-| `group_history` | Fetch recent group messages (chronological order, quoted messages auto-resolved) | `group_id` | `page_size`, `cursor` |
-| `group_info` | Get group details (name, members) | `group_id` | — |
-| `group_list` | List groups the bot has joined | — | `page_size`, `cursor` |
-| `thread_history` | Fetch thread messages (chronological order, quoted messages auto-resolved) | `thread_id` | `group_id`, `employee_code`, `page_size`, `cursor` |
-| `get_message` | Get a single message by ID (resolves any message_id or quoted_message_id) | `message_id` | — |
+| Action           | Description                                                                      | Required params | Optional params                                    |
+| ---------------- | -------------------------------------------------------------------------------- | --------------- | -------------------------------------------------- |
+| `group_history`  | Fetch recent group messages (chronological order, quoted messages auto-resolved) | `group_id`      | `page_size`, `cursor`                              |
+| `group_info`     | Get group details (name, members)                                                | `group_id`      | —                                                  |
+| `group_list`     | List groups the bot has joined                                                   | —               | `page_size`, `cursor`                              |
+| `thread_history` | Fetch thread messages (chronological order, quoted messages auto-resolved)       | `thread_id`     | `group_id`, `employee_code`, `page_size`, `cursor` |
+| `get_message`    | Get a single message by ID (resolves any message_id or quoted_message_id)        | `message_id`    | —                                                  |
 
 **Quoted messages:** `group_history` and `thread_history` auto-resolve `quoted_message_id` for each message, embedding the result as a `quoted_message` field. Use `get_message` for ad-hoc lookups.
 
