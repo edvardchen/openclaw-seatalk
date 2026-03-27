@@ -328,9 +328,10 @@ function pushToBuffer(
 async function resolveQuotedMessage(params: {
   client: SeaTalkClient;
   quotedMessageId: string;
+	mediaDownloadHosts?: string[] | null;
   log: (msg: string) => void;
 }): Promise<{ text: string; media: SeaTalkMediaInfo[] } | null> {
-  const { client, quotedMessageId, log } = params;
+  const { client, quotedMessageId, mediaDownloadHosts, log } = params;
   try {
     const data = await client.getMessageByMessageId(quotedMessageId);
     const sender =
@@ -364,10 +365,15 @@ async function resolveQuotedMessage(params: {
             : undefined,
       };
       const resolved = await resolveInboundMedia({
-        message: fakeMsg,
-        client,
-        log,
-      });
+       
+				message: fakeMsg,
+       
+				client,
+       
+				mediaDownloadHosts,
+
+				log,
+			});
       if (resolved) {
         media.push(resolved);
         content = resolved.placeholder;
@@ -445,6 +451,7 @@ async function processBufferedDmEvents(
 
   const account = resolveSeaTalkAccount({ cfg, accountId });
   const seatalkCfg = account.config;
+	const mediaDownloadHosts = seatalkCfg?.mediaDownloadHosts;
 
   const dmPolicy = seatalkCfg?.dmPolicy ?? "allowlist";
   const configAllowFrom = (seatalkCfg?.allowFrom ?? []).map((v) => String(v));
@@ -498,7 +505,12 @@ async function processBufferedDmEvents(
 
   const mediaList: SeaTalkMediaInfo[] = [];
   for (const msg of mediaMessages) {
-    const media = await resolveInboundMedia({ message: msg, client, log });
+    const media = await resolveInboundMedia({
+			message: msg,
+			client,
+			mediaDownloadHosts,
+			log,
+		});
     if (media) mediaList.push(media);
   }
 
@@ -509,10 +521,15 @@ async function processBufferedDmEvents(
     if (!qid || seenQuotedIds.has(qid)) continue;
     seenQuotedIds.add(qid);
     const quoted = await resolveQuotedMessage({
-      client,
-      quotedMessageId: qid,
-      log,
-    });
+     
+			client,
+     
+			quotedMessageId: qid,
+     
+			mediaDownloadHosts,
+			log,
+   ,
+		});
     if (quoted) {
       quotedTexts.push(quoted.text);
       mediaList.push(...quoted.media);
@@ -816,6 +833,7 @@ export async function handleSeaTalkGroupMessage(params: {
 
   const account = resolveSeaTalkAccount({ cfg, accountId });
   const seatalkCfg = account.config;
+	const mediaDownloadHosts = seatalkCfg?.mediaDownloadHosts;
 
   const access = checkGroupAccess({
     groupPolicy: seatalkCfg?.groupPolicy ?? "disabled",
@@ -880,14 +898,24 @@ async function processBufferedGroupEvents(
 
   const mediaList: SeaTalkMediaInfo[] = [];
   for (const m of mediaMessages) {
-    const media = await resolveInboundMedia({ message: m, client, log });
+    const media = await resolveInboundMedia({
+			message: m,
+			client,
+			mediaDownloadHosts,
+			log,
+		});
     if (media) mediaList.push(media);
   }
 
   const quotedMessageId = first.groupEvent.message.quoted_message_id;
   let quotedText: string | null = null;
   if (quotedMessageId) {
-    const quoted = await resolveQuotedMessage({ client, quotedMessageId, log });
+    const quoted = await resolveQuotedMessage({
+			client,
+			quotedMessageId,
+			mediaDownloadHosts,
+			log,
+		});
     if (quoted) {
       quotedText = quoted.text;
       mediaList.push(...quoted.media);
