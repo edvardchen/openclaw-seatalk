@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Add ClawHub compatibility metadata (`compat.pluginApi`).
+
 ## 0.2.0
 
 - Migrate to new plugin SDK subpath imports. Requires OpenClaw >= 2026.3.22.

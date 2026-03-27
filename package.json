@@ -1,6 +1,6 @@
 {
 	"name": "openclaw-seatalk",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "OpenClaw SeaTalk channel plugin",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -58,6 +58,9 @@
 		"install": {
 			"npmSpec": "openclaw-seatalk",
 			"defaultChoice": "npm"
+		},
+		"compat": {
+			"pluginApi": ">=2026.3.22"
 		}
 	}
 }

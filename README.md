@@ -87,13 +87,10 @@ openclaw plugins install -l .
 
 ## Upgrading
 
-Regular upgrade:
-
 ```bash
-openclaw update
+openclaw plugins update openclaw-seatalk
+openclaw gateway restart
 ```
-
-`openclaw update` automatically upgrades both OpenClaw and installed plugins.
 
 Upgrading OpenClaw across the 2026.3.22 SDK boundary (e.g. 2026.3.13 -> 2026.3.22):
 
