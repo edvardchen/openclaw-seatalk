@@ -1,4 +1,5 @@
-import { type OpenClawConfig, type RuntimeEnv, normalizeAccountId } from "openclaw/plugin-sdk";
+import type { OpenClawConfig, RuntimeEnv } from "openclaw/plugin-sdk";
+import { createChannelPairingController } from "openclaw/plugin-sdk/channel-pairing";
 import {
 	resolveSendableOutboundReplyParts,
 	sendMediaWithLeadingCaption,
@@ -71,51 +72,6 @@ function resolveSeaTalkDmAccess(params: {
 		return { decision: "pairing" };
 	}
 	return { decision: "block", reason: "not allowlisted" };
-}
-
-async function issueSeaTalkPairingChallenge(params: {
-	core: ReturnType<typeof getSeatalkRuntime>;
-	accountId: string;
-	employeeCode: string;
-	email: string | undefined;
-	client: SeaTalkClient;
-	threadId: string | undefined;
-	log: (msg: string) => void;
-}): Promise<void> {
-	const { code, created } = await params.core.channel.pairing.upsertPairingRequest({
-		channel: "seatalk",
-		accountId: normalizeAccountId(params.accountId),
-		id: params.employeeCode,
-		meta: params.email ? { email: params.email } : undefined,
-	});
-	if (!created) {
-		params.log(
-			`seatalk[${params.accountId}]: pairing already pending for ${params.employeeCode} (no duplicate code message; use openclaw pairing pending seatalk)`,
-		);
-		return;
-	}
-	const replyText = [
-		"OpenClaw: access not configured.",
-		"",
-		`Your SeaTalk employee code: ${params.employeeCode}`,
-		"",
-		`Pairing code: ${code}`,
-		"",
-		"Ask the bot owner to approve with:",
-		`openclaw pairing approve seatalk ${code}`,
-	].join("\n");
-	params.log(
-		`seatalk[${params.accountId}]: pairing request sender=${params.employeeCode} code=${code}`,
-	);
-	try {
-		await sendTextMessage(params.client, params.employeeCode, replyText, 1, params.threadId);
-	} catch (err) {
-		params.log(
-			`seatalk[${params.accountId}]: pairing reply failed for ${
-				params.employeeCode
-			}: ${String(err)}`,
-		);
-	}
 }
 
 export function dispatchSeaTalkEvent(params: {
@@ -413,15 +369,13 @@ async function processBufferedDmEvents(
 	const configAllowFrom = (seatalkCfg?.allowFrom ?? []).map((v) => String(v));
 
 	const core = getSeatalkRuntime();
+	const pairing = createChannelPairingController({
+		core,
+		channel: "seatalk",
+		accountId,
+	});
 	const storeAllowFrom =
-		dmPolicy === "pairing"
-			? await core.channel.pairing
-					.readAllowFromStore({
-						channel: "seatalk",
-						accountId: normalizeAccountId(accountId),
-					})
-					.catch(() => [])
-			: [];
+		dmPolicy === "pairing" ? await pairing.readAllowFromStore().catch(() => []) : [];
 
 	const accessDecision = resolveSeaTalkDmAccess({
 		dmPolicy,
@@ -432,15 +386,27 @@ async function processBufferedDmEvents(
 	});
 
 	if (accessDecision.decision === "pairing") {
-		await issueSeaTalkPairingChallenge({
-			core,
-			accountId,
-			employeeCode,
-			email,
-			client,
-			threadId: first.message.thread_id,
-			log,
+		const result = await pairing.issueChallenge({
+			senderId: employeeCode,
+			senderIdLine: `Your SeaTalk employee code: ${employeeCode}`,
+			meta: email ? { email } : undefined,
+			onCreated: ({ code }) => {
+				log(`seatalk[${accountId}]: pairing request sender=${employeeCode} code=${code}`);
+			},
+			sendPairingReply: async (text) => {
+				await sendTextMessage(client, employeeCode, text, 1, first.message.thread_id);
+			},
+			onReplyError: (err) => {
+				log(
+					`seatalk[${accountId}]: pairing reply failed for ${employeeCode}: ${String(err)}`,
+				);
+			},
 		});
+		if (!result.created) {
+			log(
+				`seatalk[${accountId}]: pairing already pending for ${employeeCode} (no duplicate code message; use openclaw pairing pending seatalk)`,
+			);
+		}
 		return;
 	}
 
@@ -761,7 +727,6 @@ export async function handleSeaTalkGroupMessage(params: {
 
 	const account = resolveSeaTalkAccount({ cfg, accountId });
 	const seatalkCfg = account.config;
-	const mediaDownloadHosts = seatalkCfg?.mediaDownloadHosts;
 
 	const access = checkGroupAccess({
 		groupPolicy: seatalkCfg?.groupPolicy ?? "disabled",
@@ -792,6 +757,9 @@ async function processBufferedGroupEvents(
 	const { cfg, client, runtime, accountId } = context;
 	const log = runtime?.log ?? console.log;
 	const error = runtime?.error ?? console.error;
+
+	const account = resolveSeaTalkAccount({ cfg, accountId });
+	const mediaDownloadHosts = account.config?.mediaDownloadHosts;
 
 	const first = entries[0];
 	const groupId = first.groupId;
